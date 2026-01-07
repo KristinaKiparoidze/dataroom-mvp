@@ -50,6 +50,14 @@ The codebase follows a clean architecture:
 **UX:** Inline rename, keyboard navigation, toast notifications, responsive (mobile → desktop)  
 **Quality:** 70+ tests, TypeScript strict mode, full accessibility (ARIA, keyboard), clean architecture
 
+## Screenshots
+
+![Home View](./public/01-home.png)
+
+![File Preview](./public/02-preview-file.png)
+
+![Search & Filters](./public/03-filters.png)
+
 ## Architecture
 
 ```
