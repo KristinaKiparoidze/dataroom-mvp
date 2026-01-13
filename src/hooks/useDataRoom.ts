@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import type { DataRoomState } from "../types";
 import { loadState, saveState } from "../data/dataService";
 import { initializeState } from "../data/initializeState";
+import {
+  MAX_FILE_SIZE,
+  TOAST_DURATION_SUCCESS,
+  TOAST_DURATION_ERROR,
+} from "../constants";
 import {
   createFolder,
   renameFolder,
   deleteFolder,
 } from "../data/folderActions";
 import { addFile, renameFile, deleteFile } from "../data/fileActions";
-import type { Toast } from "../components/ToastStack";
 
 export function useDataRoom() {
   const [state, setState] = useState<DataRoomState>(() => {
@@ -22,17 +27,13 @@ export function useDataRoom() {
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
   const [viewingFileId, setViewingFileId] = useState<string | null>(null);
   const [viewingFileName, setViewingFileName] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const saveErrorShownRef = useRef(false);
 
   const addToast = useCallback(
-    (message: string, tone: Toast["tone"] = "info") => {
-      const id = crypto.randomUUID();
-      setToasts((prev) => [...prev, { id, message, tone }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-      }, 3800);
+    (message: string, type: "success" | "error" | "loading" = "success") => {
+      const duration =
+        type === "success" ? TOAST_DURATION_SUCCESS : TOAST_DURATION_ERROR;
+      toast[type](message, { duration });
     },
     []
   );
@@ -118,13 +119,18 @@ export function useDataRoom() {
     }
   }, [currentFolderId, addToast]);
 
-  const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
   const handleUploadFile = useCallback(
     async (file: File) => {
-      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      // Check file type
+      if (file.type !== "application/pdf") {
+        addToast("Only PDF files are supported", "error");
+        console.error("[Upload] Invalid file type:", {
+          fileName: file.name,
+          fileType: file.type,
+        });
+        return;
+      }
+
       if (file.size > MAX_FILE_SIZE) {
         addToast(
           `File too large (${(file.size / 1024 / 1024).toFixed(
@@ -132,16 +138,23 @@ export function useDataRoom() {
           )}MB). Maximum size is 5MB.`,
           "error"
         );
+        console.error("[Upload] File size exceeded:", {
+          fileName: file.name,
+          size: file.size,
+          limit: MAX_FILE_SIZE,
+        });
         return;
       }
 
       try {
         const reader = new FileReader();
         reader.onload = () => {
+          let newFileId: string | undefined;
           try {
             const base64 = (reader.result as string).split(",")[1];
 
-            const tempFileId = `temp-${Date.now()}`;
+            // Pre-flight check: try storing temporarily
+            const tempFileId = `temp-${Date.now()}-${Math.random()}`;
             try {
               localStorage.setItem(`file-${tempFileId}`, base64);
               localStorage.removeItem(`file-${tempFileId}`);
@@ -154,32 +167,75 @@ export function useDataRoom() {
                   "Storage quota exceeded. Please delete some files and try again.",
                   "error"
                 );
+                console.error("[Upload] Storage quota exceeded:", {
+                  fileName: file.name,
+                  size: file.size,
+                });
                 return;
               }
+              console.error(
+                "[Upload] Storage error during pre-flight check:",
+                storageErr
+              );
               throw storageErr;
             }
 
             setState((prev) => {
               const newState = addFile(prev, currentFolderId, file);
-              const newFileId = Object.keys(newState.files).find(
+              newFileId = Object.keys(newState.files).find(
                 (id) => !prev.files[id]
               );
               if (newFileId) {
-                localStorage.setItem(`file-${newFileId}`, base64);
+                try {
+                  localStorage.setItem(`file-${newFileId}`, base64);
+                } catch (storageErr) {
+                  // Cleanup: Remove file from state if storage fails
+                  console.error(
+                    "[Upload] Failed to store file data:",
+                    storageErr,
+                    { fileId: newFileId }
+                  );
+                  throw storageErr;
+                }
               }
               return newState;
             });
             addToast(`Uploaded ${file.name}`, "success");
-          } catch {
+            console.info("[Upload] Success:", {
+              fileName: file.name,
+              fileId: newFileId,
+            });
+          } catch (err) {
+            // Cleanup: Remove orphaned localStorage entry if state update failed
+            if (newFileId) {
+              try {
+                localStorage.removeItem(`file-${newFileId}`);
+                console.info("[Upload] Cleaned up orphaned file:", newFileId);
+              } catch (cleanupErr) {
+                console.error(
+                  "[Upload] Failed to cleanup orphaned file:",
+                  cleanupErr
+                );
+              }
+            }
             addToast("Failed to store file", "error");
+            console.error("[Upload] Upload failed:", err, {
+              fileName: file.name,
+            });
           }
         };
-        reader.onerror = () => {
+        reader.onerror = (err) => {
           addToast("Failed to read file", "error");
+          console.error("[Upload] FileReader error:", err, {
+            fileName: file.name,
+          });
         };
         reader.readAsDataURL(file);
       } catch (error) {
         addToast((error as Error).message, "error");
+        console.error("[Upload] Unexpected error:", error, {
+          fileName: file.name,
+        });
       }
     },
     [currentFolderId, addToast]
@@ -207,7 +263,7 @@ export function useDataRoom() {
 
       setState((prev) => deleteFolder(prev, id));
       setSelectedFolderId(null);
-      addToast("Folder deleted", "info");
+      addToast("Folder deleted");
     },
     [currentFolderId, state.folders, state.files, addToast]
   );
@@ -217,7 +273,7 @@ export function useDataRoom() {
       localStorage.removeItem(`file-${id}`);
       setState((prev) => deleteFile(prev, id));
       setSelectedFileId(null);
-      addToast("File deleted", "info");
+      addToast("File deleted");
     },
     [addToast]
   );
@@ -238,10 +294,6 @@ export function useDataRoom() {
     setViewingFileName(null);
   }, []);
 
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
   return {
     state,
     currentFolderId,
@@ -254,18 +306,14 @@ export function useDataRoom() {
     renamingFile,
     viewingFileId,
     viewingFileName,
-    toasts,
-    fileInputRef,
     handleRenameStart,
     handleRenameSubmit,
     handleRenameCancel,
     handleCreateFolder,
-    handleUploadClick,
     handleUploadFile,
     handleDeleteFolder,
     handleDeleteFile,
     handleViewFile,
     handleCloseViewer,
-    dismissToast,
   };
 }

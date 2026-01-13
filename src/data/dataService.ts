@@ -1,6 +1,5 @@
-import type { DataRoomState } from '../types';
-
-const STORAGE_KEY = 'dataroom-state';
+import type { DataRoomState } from "../types";
+import { STORAGE_KEY } from "../constants";
 
 export const saveState = (state: DataRoomState): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -15,5 +14,3 @@ export const loadState = (): DataRoomState | null => {
     return null;
   }
 };
-
-

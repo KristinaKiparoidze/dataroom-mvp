@@ -17,28 +17,33 @@ function Breadcrumbs({ path, onNavigate }: BreadcrumbsProps) {
       <button
         type="button"
         onClick={() => onNavigate(path[0]?.id || "")}
-        className="font-medium text-gray-600 hover:text-gray-900 transition-colors hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:rounded px-1"
+        className="font-medium text-gray-600 hover:text-gray-900 transition-colors hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:rounded px-1.5 py-1 cursor-pointer"
       >
         Data Room
       </button>
       {path.map((folder, index) => {
         const isCurrent = index === path.length - 1;
-        const cls = isCurrent
-          ? "font-medium text-gray-900"
-          : "font-normal text-gray-600 hover:text-gray-900 hover:underline";
         return (
           <div key={folder.id} className="flex items-center gap-2">
             <span className="text-gray-300" aria-hidden="true">
               /
             </span>
-            <button
-              type="button"
-              onClick={() => onNavigate(folder.id)}
-              className={`rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:rounded px-1 ${cls}`}
-              aria-current={isCurrent ? "page" : undefined}
-            >
-              {folder.name}
-            </button>
+            {isCurrent ? (
+              <span
+                className="rounded px-1.5 py-1 font-medium text-gray-900"
+                aria-current="page"
+              >
+                {folder.name}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onNavigate(folder.id)}
+                className="rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:rounded px-1.5 py-1 cursor-pointer font-normal text-gray-600 hover:text-gray-900 hover:underline"
+              >
+                {folder.name}
+              </button>
+            )}
           </div>
         );
       })}

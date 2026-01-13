@@ -1,4 +1,7 @@
+import { useState, useMemo, useEffect } from "react";
+import ReactPaginate from "react-paginate";
 import ItemRow from "./ItemRow";
+import { ITEMS_PER_PAGE } from "../constants";
 
 type FolderView = {
   id: string;
@@ -18,7 +21,8 @@ type FileView = {
 type ItemListProps = {
   folders: FolderView[];
   files: FileView[];
-  hasAnyItems: boolean;
+  searchTerm: string;
+  sortOrder: "asc" | "desc" | "default";
   onSelectFolder: (id: string) => void;
   onSelectFile: (id: string) => void;
   onOpenFolder: (id: string) => void;
@@ -32,13 +36,13 @@ type ItemListProps = {
   onDeleteFolder: (id: string) => void;
   onDeleteFile: (id: string) => void;
   onViewFile: (id: string) => void;
-  isFiltered: boolean;
 };
 
 function ItemList({
   folders,
   files,
-  hasAnyItems,
+  searchTerm,
+  sortOrder,
   onSelectFolder,
   onSelectFile,
   onOpenFolder,
@@ -48,59 +52,111 @@ function ItemList({
   onDeleteFolder,
   onDeleteFile,
   onViewFile,
-  isFiltered,
 }: ItemListProps) {
-  const hasItems = folders.length + files.length > 0;
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const allItems = useMemo(() => {
+    return [
+      ...folders.map((folder) => ({ ...folder, kind: "folder" as const })),
+      ...files.map((file) => ({ ...file, kind: "file" as const })),
+    ];
+  }, [folders, files]);
+
+  // Reset to page 1 when search or sort order change (not when item content changes like rename)
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, sortOrder]);
+
+  const totalItems = allItems.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIdx = currentPage * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedItems = allItems.slice(startIdx, endIdx);
+  const hasItems = totalItems > 0;
 
   if (!hasItems) {
     return (
       <div className="py-12 text-center text-sm text-gray-500">
-        {isFiltered && hasAnyItems
-          ? "No items match your filters."
-          : "No items yet."}
+        No items yet.
       </div>
     );
   }
 
   return (
-    <ul className="divide-y divide-gray-100">
-      {folders.map((folder, index) => (
-        <ItemRow
-          key={folder.id}
-          id={folder.id}
-          name={folder.name}
-          kind="folder"
-          isSelected={folder.isSelected}
-          isOpen={folder.isOpen}
-          isRenaming={folder.isRenaming}
-          isLastRow={index === folders.length - 1 && files.length === 0}
-          onSelect={() => onSelectFolder(folder.id)}
-          onOpenFolder={() => onOpenFolder(folder.id)}
-          onRenameStart={() => onRenameStart("folder", folder.id)}
-          onRenameSubmit={(name) => onRenameSubmit("folder", folder.id, name)}
-          onRenameCancel={onRenameCancel}
-          onDelete={() => onDeleteFolder(folder.id)}
-        />
-      ))}
+    <>
+      <ul className="divide-y divide-gray-100">
+        {paginatedItems.map((item) =>
+          item.kind === "folder" ? (
+            <ItemRow
+              key={item.id}
+              name={item.name}
+              kind="folder"
+              isSelected={item.isSelected}
+              isRenaming={item.isRenaming}
+              onSelect={() => onSelectFolder(item.id)}
+              onOpenFolder={() => onOpenFolder(item.id)}
+              onRenameStart={() => onRenameStart("folder", item.id)}
+              onRenameSubmit={(name) => onRenameSubmit("folder", item.id, name)}
+              onRenameCancel={onRenameCancel}
+              onDelete={() => onDeleteFolder(item.id)}
+            />
+          ) : (
+            <ItemRow
+              key={item.id}
+              name={item.name}
+              kind="file"
+              isSelected={item.isSelected}
+              isRenaming={item.isRenaming}
+              onSelect={() => onSelectFile(item.id)}
+              onView={() => onViewFile(item.id)}
+              onRenameStart={() => onRenameStart("file", item.id)}
+              onRenameSubmit={(name) => onRenameSubmit("file", item.id, name)}
+              onRenameCancel={onRenameCancel}
+              onDelete={() => onDeleteFile(item.id)}
+            />
+          )
+        )}
+      </ul>
 
-      {files.map((file, index) => (
-        <ItemRow
-          key={file.id}
-          id={file.id}
-          name={file.name}
-          kind="file"
-          isSelected={file.isSelected}
-          isRenaming={file.isRenaming}
-          isLastRow={index === files.length - 1}
-          onSelect={() => onSelectFile(file.id)}
-          onRenameStart={() => onRenameStart("file", file.id)}
-          onRenameSubmit={(name) => onRenameSubmit("file", file.id, name)}
-          onRenameCancel={onRenameCancel}
-          onDelete={() => onDeleteFile(file.id)}
-          onView={() => onViewFile(file.id)}
-        />
-      ))}
-    </ul>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 sm:px-8 py-4 border-t border-gray-100 bg-gray-50/50">
+          <div
+            className="text-sm text-gray-600"
+            role="status"
+            aria-live="polite"
+          >
+            Showing {startIdx + 1}–{Math.min(endIdx, totalItems)} of{" "}
+            {totalItems} items
+          </div>
+
+          <ReactPaginate
+            forcePage={currentPage}
+            pageCount={totalPages}
+            pageRangeDisplayed={3}
+            marginPagesDisplayed={1}
+            onPageChange={(e) => setCurrentPage(e.selected)}
+            containerClassName="flex items-center justify-center gap-2 flex-wrap"
+            pageClassName=""
+            pageLinkClassName="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors"
+            activeClassName=""
+            activeLinkClassName="px-3 py-2 rounded-lg bg-blue-600 text-white border border-blue-600 text-sm font-medium cursor-pointer"
+            previousClassName=""
+            previousLinkClassName="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors"
+            nextClassName=""
+            nextLinkClassName="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer transition-colors"
+            disabledClassName=""
+            disabledLinkClassName="px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-400 cursor-not-allowed opacity-50"
+            breakClassName=""
+            breakLinkClassName="px-2 py-2 text-gray-500"
+            previousLabel="← Previous"
+            nextLabel="Next →"
+            ariaLabelBuilder={(pageIndex) => `Go to page ${pageIndex}`}
+            previousAriaLabel="Go to previous page"
+            nextAriaLabel="Go to next page"
+          />
+        </div>
+      )}
+    </>
   );
 }
 

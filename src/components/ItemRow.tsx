@@ -1,33 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FolderIcon, FileIcon, EyeIcon } from "./icons";
+import { FolderIcon, FileIcon, EyeIcon } from "./Icons";
 import ItemContextMenu from "./ItemContextMenu";
 
-type ItemRowProps = {
-  id: string;
+// Base props shared by both folder and file rows
+type BaseItemRowProps = {
   name: string;
-  kind: "folder" | "file";
   isSelected: boolean;
-  isOpen?: boolean;
   isRenaming: boolean;
-  isLastRow?: boolean;
-  size?: number;
-  createdAt?: number;
-  updatedAt?: number;
   onSelect: () => void;
-  onOpenFolder?: () => void;
   onRenameStart: () => void;
   onRenameSubmit: (newName: string) => void;
   onRenameCancel: () => void;
   onDelete: () => void;
-  onView?: () => void;
 };
+
+// Discriminated union: Folder rows MUST have onOpenFolder, File rows MUST have onView
+type FolderRowProps = BaseItemRowProps & {
+  kind: "folder";
+  onOpenFolder: () => void;
+  onView?: never;
+};
+
+type FileRowProps = BaseItemRowProps & {
+  kind: "file";
+  onView: () => void;
+  onOpenFolder?: never;
+};
+
+type ItemRowProps = FolderRowProps | FileRowProps;
 
 function ItemRow({
   name,
   kind,
   isSelected,
   isRenaming,
-  isLastRow = false,
   onSelect,
   onOpenFolder,
   onRenameStart,
@@ -37,7 +43,6 @@ function ItemRow({
   onView,
 }: ItemRowProps) {
   const isFolder = kind === "folder";
-  const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState(name);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,33 +66,36 @@ function ItemRow({
     }
   }, [draft, onRenameSubmit, onRenameCancel]);
 
+  const handleActivate = useCallback(() => {
+    if (isRenaming) return;
+    if (kind === "folder") {
+      onOpenFolder();
+    } else {
+      onView();
+    }
+  }, [isRenaming, kind, onOpenFolder, onView]);
+
   return (
     <li
       onClick={() => !isRenaming && onSelect()}
-      onDoubleClick={() => {
-        if (isRenaming) return;
-        if (isFolder && onOpenFolder) {
-          onOpenFolder();
-        } else if (!isFolder && onView) {
-          onView();
-        }
-      }}
+      onDoubleClick={handleActivate}
       onKeyDown={(e) => {
         if (isRenaming) return;
-        if (e.key === "Enter") {
-          if (isFolder && onOpenFolder) {
-            onOpenFolder();
-          } else if (!isFolder && onView) {
-            onView();
-          }
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleActivate();
         }
       }}
       tabIndex={isRenaming ? -1 : 0}
-      className={`group flex items-center gap-3 h-14 px-4 cursor-pointer ${
+      role="button"
+      aria-label={`${isFolder ? "Folder" : "File"}: ${name}${
+        isSelected ? " (selected)" : ""
+      }`}
+      className={`group flex items-center gap-4 h-16 px-6 sm:px-8 cursor-pointer transition-colors select-none ${
         isSelected ? "bg-blue-50" : "hover:bg-gray-50"
       }`}
     >
-      <div className="w-5 h-5 text-gray-600">
+      <div className="w-5 h-5 text-gray-600 flex-shrink-0">
         {isFolder ? <FolderIcon /> : <FileIcon />}
       </div>
 
@@ -104,6 +112,8 @@ function ItemRow({
             onBlur={submitRename}
             onClick={(e) => e.stopPropagation()}
             className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+            aria-label={`Rename ${isFolder ? "folder" : "file"}`}
+            aria-describedby="rename-instructions"
           />
         ) : (
           <p className="truncate text-sm text-left" title={name}>
@@ -111,10 +121,13 @@ function ItemRow({
           </p>
         )}
       </div>
+      <span id="rename-instructions" className="sr-only">
+        Press Enter to save, Escape to cancel
+      </span>
 
       {!isRenaming && (
         <div className="relative flex items-center gap-1">
-          {!isFolder && onView && (
+          {kind === "file" && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -128,22 +141,9 @@ function ItemRow({
             </button>
           )}
           <ItemContextMenu
-            isOpen={menuOpen}
-            isLastRow={isLastRow}
             buttonRef={menuButtonRef}
-            onToggle={(e) => {
-              e.stopPropagation();
-              setMenuOpen((v) => !v);
-            }}
-            onRename={() => {
-              setMenuOpen(false);
-              onRenameStart();
-            }}
-            onDelete={() => {
-              setMenuOpen(false);
-              onDelete();
-            }}
-            onClose={() => setMenuOpen(false)}
+            onRename={onRenameStart}
+            onDelete={onDelete}
           />
         </div>
       )}

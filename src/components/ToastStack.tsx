@@ -1,49 +1,35 @@
-export type Toast = {
-  id: string;
-  message: string;
-  tone?: "info" | "success" | "error";
-};
+import { Toaster } from "react-hot-toast";
 
-type ToastStackProps = {
-  toasts: Toast[];
-  onDismiss: (id: string) => void;
-};
-
-function toneStyles(tone: Toast["tone"]) {
-  switch (tone) {
-    case "success":
-      return "bg-green-50 border-green-200 text-green-800";
-    case "error":
-      return "bg-red-50 border-red-200 text-red-800";
-    default:
-      return "bg-slate-50 border-slate-200 text-slate-800";
-  }
-}
-
-function ToastStack({ toasts, onDismiss }: ToastStackProps) {
-  if (toasts.length === 0) return null;
-
+export function ToastContainer() {
   return (
-    <div className="fixed inset-x-0 top-4 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-3 shadow-md ${toneStyles(
-            toast.tone
-          )}`}
-        >
-          <span className="text-sm font-medium">{toast.message}</span>
-          <button
-            type="button"
-            onClick={() => onDismiss(toast.id)}
-            className="ml-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
-          >
-            Close
-          </button>
-        </div>
-      ))}
-    </div>
+    <Toaster
+      position="top-center"
+      reverseOrder={false}
+      gutter={8}
+      toastOptions={{
+        duration: 3800,
+        style: {
+          background: "#fff",
+          color: "#333",
+          borderRadius: "0.75rem",
+          border: "1px solid #e5e7eb",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+        },
+        success: {
+          style: {
+            background: "#f0fdf4",
+            border: "1px solid #dcfce7",
+            color: "#166534",
+          },
+        },
+        error: {
+          style: {
+            background: "#fef2f2",
+            border: "1px solid #fee2e2",
+            color: "#b91c1c",
+          },
+        },
+      }}
+    />
   );
 }
-
-export default ToastStack;

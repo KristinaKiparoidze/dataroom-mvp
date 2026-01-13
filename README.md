@@ -1,54 +1,68 @@
 # Data Room
 
-> Take-home project by Kristina Kiparoidze
+> Production-ready document management application
 
-Production-ready data room MVP built with Vite + React 19 + TypeScript + Tailwind CSS.
+A fully-featured data room implementation demonstrating enterprise-grade React architecture with TypeScript, responsive design, and comprehensive test coverage.
 
-## Setup Instructions
+## Quick Start
 
-### Prerequisites
+### Requirements
 
 - Node.js 18+ and npm 9+
 
 ### Installation
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-# → Opens at http://localhost:5173
-
-# Run tests
-npm run test
-
-# Build for production
-npm run build
+npm run dev      # Development server at http://localhost:5173
+npm run test     # Run test suite
+npm run build    # Production build
 npm run preview  # Preview production build
 ```
 
-### Project Structure
+## Overview
 
-The codebase follows a clean architecture:
+This application provides a hierarchical document management system with real-time search, PDF viewing capabilities, and persistent storage. The codebase demonstrates professional-grade patterns including immutable state management, comprehensive testing, and accessibility compliance.
 
-- **`src/data/`** - Pure functions for all business logic (CRUD operations)
-- **`src/components/`** - React UI components (11 files, fully typed)
-- **`src/utils/`** - Helper functions (naming, date filtering)
-- **`src/tests/`** - 70+ unit and integration tests
+## Screenshots
 
-### Development Notes
+**Home View - Folder and File Management**
 
-- Uses **React 19** with strict TypeScript
-- **Tailwind CSS 4** for styling (no custom CSS needed)
-- **Vitest** for testing (Jest-compatible API)
-- **ESLint** with React Hooks rules enforced
+![Home View](./public/01-home.png)
 
-## Features
+**PDF Preview - Document Viewer with Navigation**
 
-**Core:** Nested folders, PDF upload (5MB max), search, filters (type/date), auto-save to localStorage  
-**UX:** Inline rename, keyboard navigation, toast notifications, responsive (mobile → desktop)  
-**Quality:** 70+ tests, TypeScript strict mode, full accessibility (ARIA, keyboard), clean architecture
+![File Preview](./public/02-preview-file.png)
+
+**Search and Filtering - Real-time Search Results**
+
+![Search & Filters](./public/03-filters.png)
+
+## Key Features
+
+### Core Capabilities
+
+- Hierarchical folder structures supporting unlimited nesting
+- PDF upload and storage (5MB maximum per file)
+- Real-time search with automatic filtering
+- Multi-level sorting (ascending, descending, default)
+- Automatic conflict resolution for duplicate names
+
+### User Interface
+
+- Inline editing without modal dialogs
+- Full keyboard navigation support
+- Responsive design optimized for mobile through desktop
+- Toast notifications for user feedback
+- PDF preview modal with page navigation
+
+### Technical Excellence
+
+- 70+ unit and integration tests
+- TypeScript strict mode compilation
+- WCAG 2.1 AA accessibility compliance
+- Memory-safe async operations with AbortController
+- Type-safe component composition with discriminated unions
 
 ## Screenshots
 
@@ -60,72 +74,48 @@ The codebase follows a clean architecture:
 
 ## Architecture
 
-```
-src/
-├── components/         # React components (11 files)
-│   ├── Breadcrumbs.tsx     # Navigation path with clickable segments
-│   ├── FileViewer.tsx      # PDF modal viewer with pdfjs rendering
-│   ├── ItemContextMenu.tsx # Three-dot menu for rename/delete
-│   ├── ItemList.tsx        # List container for folders and files
-│   ├── ItemRow.tsx         # Individual row with inline edit & menu
-│   ├── Toolbar.tsx         # Create folder, upload, back actions
-│   ├── ToastStack.tsx      # Toast notification system
-│   ├── icons.tsx           # SVG icons as React components
-│   └── ...
-├── data/              # Business logic (pure functions)
-│   ├── dataService.ts     # localStorage persistence
-│   ├── fileActions.ts     # File CRUD operations
-│   ├── folderActions.ts   # Folder CRUD operations
-│   └── initializeState.ts # Default data setup
-├── utils/             # Helpers
-│   ├── dates.ts           # Date constants for filtering
-│   └── naming.ts          # Auto-deduplication logic
-├── tests/             # Test suite (70+ tests)
-│   ├── data/actions.test.ts       # Full CRUD operation tests
-│   ├── utils/naming.test.ts       # Naming logic & duplicate detection
-│   ├── components/ItemContextMenu.test.tsx # Menu component tests
-│   └── setup.ts           # Test environment config
-├── App.tsx            # Main orchestrator (494 lines)
-├── types.ts           # TypeScript interfaces
-├── main.tsx           # React entry point
-└── index.css          # Tailwind CSS imports
-```
+The codebase is organized into logical layers following a clean architecture pattern:
 
-## Key Design Decisions
+- **`src/data/`** - Pure functions implementing all CRUD operations and business logic
+- **`src/components/`** - React components providing UI functionality
+- **`src/hooks/`** - Custom hooks managing state and side effects
+- **`src/utils/`** - Utility functions for naming resolution and filtering
+- **`src/tests/`** - Comprehensive test suite with 70+ tests
 
-**1. Pure Functional Data Layer**
+## Design Patterns
 
-- All CRUD operations (`folderActions.ts`, `fileActions.ts`) are pure functions
-- Returns new state instead of mutations → trivial to test, no side effects
-- Makes backend migration straightforward (swap localStorage for API calls)
+**Pure Functional State Management**
 
-**2. Auto-Resolution Over Errors**
+All CRUD operations are implemented as pure functions that return new state objects rather than mutating existing state. This eliminates side effects, simplifies testing, and provides a clear audit trail. The pattern is easily composable with Redux or Zustand if backend migration is required.
 
-- Duplicate names auto-increment: `file.pdf` → `file (1).pdf` → `file (2).pdf`
-- Google Drive UX pattern: users never see "name already exists" errors
-- Smart number extraction: renaming `Report (5).pdf` to `Report.pdf` becomes `Report (6).pdf` if conflict
+**Intelligent Naming Resolution**
 
-**3. Scoped Search by Design**
+Duplicate names are resolved with numeric suffixes following a Google Drive-like pattern. The naming system intelligently extracts and increments existing numbers to prevent gaps in sequences, eliminating the need for explicit conflict handling.
 
-- Only searches current folder (not recursive)
-- Prevents overwhelming results in deep hierarchies (e.g., 100+ nested folders)
-- Trade-off: sacrifices global search for better UX in typical use cases
+**Scoped Search**
 
-**4. localStorage as Persistence Layer**
+Search operates within the current folder scope rather than recursively across all folders. This design choice prevents overwhelming result sets while aligning with user expectations.
 
-- Base64 encoding for PDF storage (simplifies MVP, no backend needed)
-- 5MB file limit (browser quota constraint)
-- Easy migration path: swap `saveState()`/`loadState()` with API calls
+**localStorage Persistence**
 
-**5. Component Architecture**
+PDFs are stored as base64-encoded strings in localStorage for MVP simplicity. Production deployments should implement server-side storage with streaming uploads for scalability.
 
-- Inline editing (`ItemRow`) instead of modal dialogs → faster interaction
-- Context menus show on hover → reduces visual clutter
-- Toast notifications → non-blocking feedback, preserves user context
+**Memoization Strategy**
+
+Strategic use of `useMemo` and `useCallback` prevents unnecessary re-renders. Dependency arrays are carefully managed to invalidate only when relevant state changes occur, maintaining UI responsiveness with large datasets.
+
+**Memory-Safe Async Operations**
+
+PDF rendering leverages AbortController to prevent setState calls on unmounted components. This pattern ensures graceful handling of component lifecycle during async operations.
+
+**Local Resource Bundling**
+
+The PDF.js worker is bundled locally from node_modules rather than loaded from a CDN. This approach eliminates CORS restrictions and ensures reliable operation across all deployment environments.
 
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript 5.9 (strict), Tailwind CSS 4
 - **Build:** Vite 7, ESLint, Vitest
-- **PDF:** pdfjs-dist 4.1 with worker support
+- **PDF:** pdfjs-dist 4.1 with local worker support (bundled, no CORS)
 - **Storage:** localStorage with base64 encoding
+- **UI:** @radix-ui components for accessibility, react-hot-toast for notifications

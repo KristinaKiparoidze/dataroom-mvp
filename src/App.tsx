@@ -1,13 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { Folder } from "./types";
 import { useDataRoom } from "./hooks/useDataRoom";
 import { useFilters } from "./hooks/useFilters";
+import { ToastContainer } from "./components/ToastStack";
+import DragDropUpload from "./components/DragDropUpload";
 import Breadcrumbs from "./components/Breadcrumbs";
 import Toolbar from "./components/Toolbar";
 import ItemList from "./components/ItemList";
-import FileViewer from "./components/FileViewer";
-import ToastStack from "./components/ToastStack";
-import { SearchIcon, CloseIcon } from "./components/icons";
+import FileViewerDialog from "./components/FileViewerDialog";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { SearchIcon } from "./components/Icons";
 
 function App() {
   const {
@@ -22,19 +24,15 @@ function App() {
     renamingFile,
     viewingFileId,
     viewingFileName,
-    toasts,
-    fileInputRef,
     handleRenameStart,
     handleRenameSubmit,
     handleRenameCancel,
     handleCreateFolder,
-    handleUploadClick,
     handleUploadFile,
     handleDeleteFolder,
     handleDeleteFile,
     handleViewFile,
     handleCloseViewer,
-    dismissToast,
   } = useDataRoom();
 
   useEffect(() => {
@@ -74,194 +72,222 @@ function App() {
   const {
     searchTerm,
     setSearchTerm,
-    filterType,
-    setFilterType,
-    dateFilter,
-    setDateFilter,
+    sortOrder,
+    setSortOrder,
     visibleFolders,
     visibleFiles,
-    hasActiveFilters,
-    clearFilters,
   } = useFilters(foldersInCurrentFolder, filesInCurrentFolder);
-
-  const hasAnyItems =
-    foldersInCurrentFolder.length + filesInCurrentFolder.length > 0;
 
   const canGoBack = currentFolderId !== state.rootFolderId;
 
-  const folderViews = visibleFolders.map((folder) => ({
-    id: folder.id,
-    name: folder.name,
-    isOpen: folder.id === currentFolderId,
-    isSelected: folder.id === selectedFolderId,
-    isRenaming: folder.id === renamingFolder,
-    createdAt: folder.createdAt,
-    updatedAt: folder.updatedAt,
-  }));
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleNavigate = useCallback(
+    (id: string) => {
+      setCurrentFolderId(id);
+      setSelectedFileId(null);
+      setSelectedFolderId(null);
+    },
+    [setCurrentFolderId, setSelectedFileId, setSelectedFolderId]
+  );
 
-  const fileViews = visibleFiles.map((file) => ({
-    id: file.id,
-    name: file.name,
-    isSelected: file.id === selectedFileId,
-    isRenaming: file.id === renamingFile,
-    size: file.size,
-    createdAt: file.createdAt,
-    updatedAt: file.updatedAt,
-  }));
+  const handleBack = useCallback(() => {
+    const parentId = state.folders[currentFolderId].parentId;
+    if (parentId) {
+      setCurrentFolderId(parentId);
+      setSelectedFolderId(null);
+      setSelectedFileId(null);
+    }
+  }, [
+    currentFolderId,
+    state.folders,
+    setCurrentFolderId,
+    setSelectedFolderId,
+    setSelectedFileId,
+  ]);
+
+  const handleSelectFolder = useCallback(
+    (id: string) => {
+      setSelectedFolderId(id);
+      setSelectedFileId(null);
+    },
+    [setSelectedFolderId, setSelectedFileId]
+  );
+
+  const handleSelectFile = useCallback(
+    (id: string) => {
+      setSelectedFileId(id);
+      setSelectedFolderId(null);
+    },
+    [setSelectedFileId, setSelectedFolderId]
+  );
+
+  const handleOpenFolder = useCallback(
+    (id: string) => {
+      setCurrentFolderId(id);
+      setSelectedFolderId(null);
+      setSelectedFileId(null);
+    },
+    [setCurrentFolderId, setSelectedFolderId, setSelectedFileId]
+  );
+
+  const folderViews = useMemo(
+    () =>
+      visibleFolders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        isOpen: folder.id === currentFolderId,
+        isSelected: folder.id === selectedFolderId,
+        isRenaming: folder.id === renamingFolder,
+      })),
+    [visibleFolders, currentFolderId, selectedFolderId, renamingFolder]
+  );
+
+  const fileViews = useMemo(
+    () =>
+      visibleFiles.map((file) => ({
+        id: file.id,
+        name: file.name,
+        isSelected: file.id === selectedFileId,
+        isRenaming: file.id === renamingFile,
+        size: file.size,
+      })),
+    [visibleFiles, selectedFileId, renamingFile]
+  );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 overflow-y-scroll">
-      <ToastStack toasts={toasts} onDismiss={dismissToast} />
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleUploadFile(file);
-          e.target.value = "";
-        }}
-      />
+    <div className="min-h-screen flex flex-col bg-white text-gray-900 overflow-y-scroll">
+      <ToastContainer />
 
       <div className="flex-1 py-4 sm:py-6">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-5 sm:px-6 py-3 border-b border-gray-200">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="bg-white">
+            <div className="px-6 sm:px-8 py-3 border-b border-gray-200">
               <Breadcrumbs
                 path={breadcrumbPath.map((folder) => ({
                   id: folder.id,
                   name: folder.name,
                 }))}
-                onNavigate={(id) => {
-                  setCurrentFolderId(id);
-                  setSelectedFileId(null);
-                  setSelectedFolderId(null);
-                }}
+                onNavigate={handleNavigate}
               />
             </div>
 
             <Toolbar
               onCreateFolder={handleCreateFolder}
-              onUpload={handleUploadClick}
               canGoBack={canGoBack}
-              onBack={() => {
-                const parentId = state.folders[currentFolderId].parentId;
-                if (parentId) {
-                  setCurrentFolderId(parentId);
-                  setSelectedFolderId(null);
-                  setSelectedFileId(null);
-                }
-              }}
+              onBack={handleBack}
             />
 
-            <div className="px-5 sm:px-6 py-3 border-b border-gray-100 bg-gray-50/50">
-              <h1 className="text-lg font-semibold text-gray-900">
+            <div className="px-6 sm:px-8 py-3 border-b border-gray-200">
+              <h1 className="text-lg font-medium text-gray-900">
                 {state.folders[currentFolderId]?.name}
               </h1>
             </div>
 
-            <div className="px-5 sm:px-6 py-3 border-b border-gray-200 bg-white">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="px-6 sm:px-8 py-4 border-b border-gray-200">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* Search */}
                 <div className="relative flex-1 sm:flex-none">
+                  <label htmlFor="search-input" className="sr-only">
+                    Search files and folders
+                  </label>
                   <input
+                    id="search-input"
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search..."
+                    placeholder="Search files and folders..."
                     aria-label="Search by name"
-                    className="w-full sm:w-64 rounded-full border border-gray-300 bg-gray-50 pl-9 pr-3 py-1.5 text-sm text-gray-700 placeholder-gray-500 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 transition-all"
+                    className="w-full sm:w-72 rounded-lg border border-gray-300 bg-white pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all duration-200"
                   />
-                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
+                {/* Sort Controls */}
+                <div className="relative">
+                  <label htmlFor="sort-select" className="sr-only">
+                    Sort items
+                  </label>
                   <select
-                    value={filterType}
+                    id="sort-select"
+                    value={sortOrder}
                     onChange={(e) =>
-                      setFilterType(
-                        e.target.value as "all" | "folders" | "files"
-                      )
+                      setSortOrder(e.target.value as "asc" | "desc" | "default")
                     }
-                    aria-label="Filter by item type"
-                    className="flex-1 sm:flex-none px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 cursor-pointer transition-all"
+                    className="appearance-none text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 hover:border-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer"
                   >
-                    <option value="all">All</option>
-                    <option value="folders">Folders</option>
-                    <option value="files">Files</option>
+                    <option value="default">Sort by: Default</option>
+                    <option value="asc">Sort by: Name (A–Z)</option>
+                    <option value="desc">Sort by: Name (Z–A)</option>
                   </select>
-
-                  <select
-                    value={dateFilter}
-                    onChange={(e) =>
-                      setDateFilter(
-                        e.target.value as "any" | "24h" | "7d" | "30d"
-                      )
-                    }
-                    aria-label="Filter by last updated"
-                    className="flex-1 sm:flex-none px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-500 cursor-pointer transition-all"
+                  <svg
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
-                    <option value="any">Any time</option>
-                    <option value="24h">Last 24h</option>
-                    <option value="7d">Last 7d</option>
-                    <option value="30d">Last 30d</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-colors focus:outline-none focus:ring-1 focus:ring-gray-300 ${
-                      hasActiveFilters
-                        ? "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                        : "text-transparent pointer-events-none"
-                    }`}
-                    aria-label="Clear all filters"
-                    title="Clear filters"
-                    disabled={!hasActiveFilters}
-                  >
-                    <CloseIcon className="w-3.5 h-3.5" />
-                  </button>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                    />
+                  </svg>
                 </div>
               </div>
+            </div>
+
+            <div className="px-6 sm:px-8 py-6 border-b border-gray-200">
+              <DragDropUpload onUpload={handleUploadFile} />
             </div>
 
             <div className="overflow-visible">
               <ItemList
                 folders={folderViews}
                 files={fileViews}
-                hasAnyItems={hasAnyItems}
-                onSelectFolder={(id) => {
-                  setSelectedFolderId(id);
-                  setSelectedFileId(null);
-                }}
-                onSelectFile={(id) => {
-                  setSelectedFileId(id);
-                  setSelectedFolderId(null);
-                }}
-                onOpenFolder={(id) => {
-                  setCurrentFolderId(id);
-                  setSelectedFolderId(null);
-                  setSelectedFileId(null);
-                }}
+                searchTerm={searchTerm}
+                sortOrder={sortOrder}
+                onSelectFolder={handleSelectFolder}
+                onSelectFile={handleSelectFile}
+                onOpenFolder={handleOpenFolder}
                 onRenameStart={handleRenameStart}
                 onRenameSubmit={handleRenameSubmit}
                 onRenameCancel={handleRenameCancel}
                 onDeleteFolder={handleDeleteFolder}
                 onDeleteFile={handleDeleteFile}
                 onViewFile={handleViewFile}
-                isFiltered={hasActiveFilters}
               />
             </div>
           </div>
         </div>
       </div>
 
-      <FileViewer
-        fileId={viewingFileId}
-        fileName={viewingFileName}
-        onClose={handleCloseViewer}
-      />
+      <ErrorBoundary
+        fallback={
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
+              <h3 className="text-lg font-semibold text-red-600 mb-2">
+                Failed to load file
+              </h3>
+              <p className="text-gray-600 mb-4">
+                There was an error displaying this file. Please try again.
+              </p>
+              <button
+                onClick={handleCloseViewer}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <FileViewerDialog
+          fileId={viewingFileId}
+          fileName={viewingFileName}
+          onClose={handleCloseViewer}
+        />
+      </ErrorBoundary>
     </div>
   );
 }
