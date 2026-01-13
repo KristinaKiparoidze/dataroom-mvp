@@ -23,6 +23,7 @@ type ItemListProps = {
   files: FileView[];
   searchTerm: string;
   sortOrder: "asc" | "desc" | "default";
+  currentFolderId: string;
   onSelectFolder: (id: string) => void;
   onSelectFile: (id: string) => void;
   onOpenFolder: (id: string) => void;
@@ -43,6 +44,7 @@ function ItemList({
   files,
   searchTerm,
   sortOrder,
+  currentFolderId,
   onSelectFolder,
   onSelectFile,
   onOpenFolder,
@@ -62,10 +64,10 @@ function ItemList({
     ];
   }, [folders, files]);
 
-  // Reset to page 1 when search or sort order change (not when item content changes like rename)
+  // Reset to page 1 when search, sort, or folder changes
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, sortOrder]);
+  }, [searchTerm, sortOrder, currentFolderId]);
 
   const totalItems = allItems.length;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);

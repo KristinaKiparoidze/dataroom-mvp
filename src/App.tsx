@@ -247,6 +247,7 @@ function App() {
                 files={fileViews}
                 searchTerm={searchTerm}
                 sortOrder={sortOrder}
+                currentFolderId={currentFolderId}
                 onSelectFolder={handleSelectFolder}
                 onSelectFile={handleSelectFile}
                 onOpenFolder={handleOpenFolder}
