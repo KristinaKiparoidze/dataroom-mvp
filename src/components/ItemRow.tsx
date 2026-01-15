@@ -93,7 +93,7 @@ function ItemRow({
       aria-label={`${isFolder ? "Folder" : "File"}: ${name}${
         isSelected ? " (selected)" : ""
       }`}
-      className={`group flex items-center gap-4 h-16 px-6 sm:px-8 cursor-pointer transition-colors select-none ${
+      className={`group flex items-center gap-4 h-16 px-6 sm:px-8 cursor-pointer transition-colors select-none border-b border-gray-100 ${
         isSelected ? "bg-blue-50" : "hover:bg-gray-50"
       }`}
     >
@@ -135,7 +135,7 @@ function ItemRow({
                 e.stopPropagation();
                 onView();
               }}
-              className="p-1.5 text-gray-400 hover:bg-blue-50 hover:text-blue-600 rounded-full transition-all duration-150 opacity-0 group-hover:opacity-100"
+              className="p-1.5 text-gray-400 hover:bg-blue-50 hover:text-blue-600 rounded-full transition-all duration-150 opacity-0 group-hover:opacity-100 cursor-pointer"
               aria-label="View file"
               title="View file"
             >

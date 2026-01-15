@@ -34,9 +34,9 @@ This application provides a hierarchical document management system with real-ti
 
 ![File Preview](./public/02-preview-file.png)
 
-**Search and Filtering - Real-time Search Results**
+**Confirmation Dialog - Delete with User Confirmation**
 
-![Search & Filters](./public/03-filters.png)
+![Confirmation Dialog](./public/03-dialog.png)
 
 ## Key Features
 
@@ -54,7 +54,9 @@ This application provides a hierarchical document management system with real-ti
 - Full keyboard navigation support
 - Responsive design optimized for mobile through desktop
 - Toast notifications for user feedback
-- PDF preview modal with page navigation
+- PDF preview modal with zoom controls and page navigation
+- Error boundaries with graceful error recovery
+- Polished loading states with backdrop blur and dual-ring spinner
 
 ### Technical Excellence
 
@@ -63,14 +65,6 @@ This application provides a hierarchical document management system with real-ti
 - WCAG 2.1 AA accessibility compliance
 - Memory-safe async operations with AbortController
 - Type-safe component composition with discriminated unions
-
-## Screenshots
-
-![Home View](./public/01-home.png)
-
-![File Preview](./public/02-preview-file.png)
-
-![Search & Filters](./public/03-filters.png)
 
 ## Architecture
 
@@ -106,7 +100,7 @@ Strategic use of `useMemo` and `useCallback` prevents unnecessary re-renders. De
 
 **Memory-Safe Async Operations**
 
-PDF rendering leverages AbortController to prevent setState calls on unmounted components. This pattern ensures graceful handling of component lifecycle during async operations.
+PDF rendering leverages AbortController to prevent setState calls on unmounted components. useLayoutEffect prevents React Strict Mode double-renders, ensuring smooth single-pass rendering with deduplication guards for optimal performance.
 
 **Local Resource Bundling**
 

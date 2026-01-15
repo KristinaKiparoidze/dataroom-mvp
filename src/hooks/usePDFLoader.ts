@@ -53,12 +53,13 @@ export function usePDFLoader(fileId: string | null): UsePDFLoaderState {
       try {
         setLoading(true);
         setError(null);
-        setPdfLoaded(false);
+        // Don't reset pdfLoaded here - it will cause glitching
 
         const stored = localStorage.getItem(`${PDF_FILE_KEY_PREFIX}${fileId}`);
         if (!stored) {
           if (!abortController.signal.aborted) {
             setError("File not found");
+            setPdfLoaded(false);
           }
           setLoading(false);
           return;
@@ -81,6 +82,7 @@ export function usePDFLoader(fileId: string | null): UsePDFLoaderState {
         // Only update state if component is still mounted
         if (!abortController.signal.aborted) {
           setError((err as Error).message || "Failed to load PDF");
+          setPdfLoaded(false);
           setLoading(false);
         }
       }

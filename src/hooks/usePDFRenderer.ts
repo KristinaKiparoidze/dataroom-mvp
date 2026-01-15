@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { PDF_PAGE_WIDTH_RATIO } from "../constants";
 
@@ -46,22 +46,36 @@ export function usePDFRenderer(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pageRefs = useRef<HTMLDivElement[]>([]);
+  const lastRenderRef = useRef<string>("");
 
-  // Render all pages
-  useEffect(() => {
+  // Render all pages - use useLayoutEffect to prevent Strict Mode double-render
+  useLayoutEffect(() => {
     if (!pdfLoaded || !pdfDocRef.current || !containerRef.current) return;
+
+    // Skip if this is the same PDF we just rendered
+    const currentRender = `${pdfDocRef.current}-${totalPages}`;
+    if (lastRenderRef.current === currentRender) return;
+    lastRenderRef.current = currentRender;
+
+    let isMounted = true;
+    const abortSignal = new AbortController();
 
     const renderAllPages = async () => {
       try {
+        // Set loading FIRST, before clearing canvases
         setLoading(true);
+        setError(null);
+        setCanvases([]); // Clear old canvases
+
         const newCanvases: HTMLCanvasElement[] = [];
         const containerWidth = containerRef.current!.clientWidth;
 
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+          if (!isMounted || abortSignal.signal.aborted) return;
+
           const page = await pdfDocRef.current!.getPage(pageNum);
           const viewport = page.getViewport({ scale: 1 });
 
-          // Calculate scale to fit width with padding
           const baseScale =
             (containerWidth * PDF_PAGE_WIDTH_RATIO) / viewport.width;
 
@@ -80,35 +94,25 @@ export function usePDFRenderer(
           newCanvases.push(canvas);
         }
 
-        setCanvases(newCanvases);
-        setLoading(false);
+        if (isMounted && !abortSignal.signal.aborted) {
+          setCanvases(newCanvases);
+          setLoading(false);
+        }
       } catch (err) {
-        setError((err as Error).message || "Failed to render pages");
-        setLoading(false);
+        if (isMounted && !abortSignal.signal.aborted) {
+          setError((err as Error).message || "Failed to render pages");
+          setLoading(false);
+        }
       }
     };
 
     renderAllPages();
-  }, [pdfLoaded, totalPages]);
 
-  // Cleanup canvases on unmount or change
-  useEffect(() => {
     return () => {
-      canvases.forEach((canvas) => {
-        if (canvas.parentNode) {
-          canvas.parentNode.removeChild(canvas);
-        }
-        // Clear canvas memory
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-        // Reset canvas dimensions
-        canvas.width = 0;
-        canvas.height = 0;
-      });
+      isMounted = false;
+      abortSignal.abort();
     };
-  }, [canvases]);
+  }, [pdfLoaded, totalPages]);
 
   return { canvases, loading, error, pageRefs };
 }

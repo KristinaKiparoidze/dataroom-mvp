@@ -86,7 +86,7 @@ function ItemList({
 
   return (
     <>
-      <ul className="divide-y divide-gray-100">
+      <ul>
         {paginatedItems.map((item) =>
           item.kind === "folder" ? (
             <ItemRow

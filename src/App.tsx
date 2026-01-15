@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import type { Folder } from "./types";
 import { useDataRoom } from "./hooks/useDataRoom";
 import { useFilters } from "./hooks/useFilters";
@@ -14,6 +14,7 @@ import { SearchIcon } from "./components/Icons";
 
 function App() {
   const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+  const errorBoundaryRef = useRef<InstanceType<typeof ErrorBoundary>>(null);
 
   const {
     state,
@@ -275,6 +276,7 @@ function App() {
       </div>
 
       <ErrorBoundary
+        ref={errorBoundaryRef}
         fallback={
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
@@ -285,8 +287,8 @@ function App() {
                 There was an error displaying this file. Please try again.
               </p>
               <button
-                onClick={handleCloseViewer}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={() => errorBoundaryRef.current?.reset()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
               >
                 Close
               </button>
@@ -294,11 +296,14 @@ function App() {
           </div>
         }
       >
-        <FileViewerDialog
-          fileId={viewingFileId}
-          fileName={viewingFileName}
-          onClose={handleCloseViewer}
-        />
+        {viewingFileId && (
+          <FileViewerDialog
+            key={viewingFileId}
+            fileId={viewingFileId}
+            fileName={viewingFileName}
+            onClose={handleCloseViewer}
+          />
+        )}
       </ErrorBoundary>
 
       <CreateFolderDialog

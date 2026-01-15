@@ -19,6 +19,7 @@ function FileViewerDialog({
   const [zoom, setZoom] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Reset zoom and page input when file changes
   useEffect(() => {
@@ -43,8 +44,17 @@ function FileViewerDialog({
     pageRefs,
   } = usePDFRenderer(pdfLoaded, pdfDocRef, totalPages, containerRef);
 
-  const loading = pdfLoading || renderLoading;
   const error = pdfError || renderError;
+
+  // Maintain continuous loading state to prevent animation glitching
+  useEffect(() => {
+    if (pdfLoading || renderLoading) {
+      setIsLoading(true);
+    } else if (canvases.length > 0 || error) {
+      // Only stop loading when we have content or an error
+      setIsLoading(false);
+    }
+  }, [pdfLoading, renderLoading, canvases.length, error]);
 
   // Keyboard shortcuts for PDF viewer
   useEffect(() => {
@@ -111,7 +121,7 @@ function FileViewerDialog({
 
       {/* Modal container - large centered popup */}
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-        <div className="relative w-full h-full flex flex-col bg-white pointer-events-auto overflow-hidden">
+        <div className="relative w-11/12 h-5/6 flex flex-col bg-white pointer-events-auto overflow-hidden rounded-lg shadow-2xl">
           {/* Header - full width, static */}
           <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm z-10">
             <h1 className="text-lg font-semibold text-gray-900 truncate">
@@ -145,17 +155,20 @@ function FileViewerDialog({
             className="relative flex-1 bg-white"
             style={{ overflow: "auto" }}
           >
-            {loading && (
-              <div className="absolute inset-0 flex items-center justify-center z-20">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <div className="text-sm text-gray-600 font-medium">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center z-20 bg-white/95 backdrop-blur-sm transition-opacity duration-200">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-blue-200 rounded-full"></div>
+                    <div className="absolute inset-0 w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <div className="text-base text-gray-700 font-medium animate-pulse">
                     Loading PDF...
                   </div>
                 </div>
               </div>
             )}
-            {error && (
+            {!isLoading && error && (
               <div className="absolute inset-0 flex items-center justify-center z-20">
                 <div className="text-center px-6 py-8 bg-white rounded-lg shadow-lg border border-red-200 max-w-md">
                   <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
@@ -188,13 +201,13 @@ function FileViewerDialog({
               </div>
             )}
             {/* Render all pages vertically */}
-            {!loading && !error && canvases.length > 0 && (
+            {!isLoading && !error && canvases.length > 0 && (
               <PDFPages canvases={canvases} zoom={zoom} pageRefs={pageRefs} />
             )}
           </div>
 
           {/* Toolbar - Bottom floating */}
-          {totalPages > 0 && !loading && (
+          {totalPages > 0 && !isLoading && (
             <PDFToolbar
               totalPages={totalPages}
               zoom={zoom}
