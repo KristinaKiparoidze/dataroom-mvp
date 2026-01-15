@@ -121,7 +121,7 @@ function FileViewerDialog({
 
       {/* Modal container - large centered popup */}
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-        <div className="relative w-11/12 h-5/6 flex flex-col bg-white pointer-events-auto overflow-hidden rounded-lg shadow-2xl">
+        <div className="relative w-11/12 h-[95vh] flex flex-col bg-white pointer-events-auto overflow-hidden rounded-lg shadow-2xl">
           {/* Header - full width, static */}
           <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm z-10">
             <h1 className="text-lg font-semibold text-gray-900 truncate">
