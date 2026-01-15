@@ -7,6 +7,8 @@ import {
   MAX_FILE_SIZE,
   TOAST_DURATION_SUCCESS,
   TOAST_DURATION_ERROR,
+  SUPPORTED_FILE_TYPE,
+  PDF_FILE_KEY_PREFIX,
 } from "../constants";
 import {
   createFolder,
@@ -14,7 +16,36 @@ import {
   deleteFolder,
 } from "../data/folderActions";
 import { addFile, renameFile, deleteFile } from "../data/fileActions";
+import {
+  validateName,
+  validateFileSize,
+  validateFileType,
+} from "../utils/validation";
 
+/**
+ * Main hook for managing data room state and operations
+ *
+ * Handles:
+ * - Loading/saving state from localStorage
+ * - Folder CRUD operations (create, rename, delete)
+ * - File CRUD operations (upload, rename, delete, view)
+ * - Selection and navigation state
+ * - Input validation and error handling
+ * - User notifications via toast
+ *
+ * @returns Object containing:
+ *   - state: Current DataRoomState with folders and files
+ *   - currentFolderId: Active folder being viewed
+ *   - setCurrentFolderId: Navigate to different folder
+ *   - selectedFolderId/selectedFileId: Currently selected items
+ *   - setSelectedFolderId/setSelectedFileId: Update selection
+ *   - renamingFolder/renamingFile: IDs of items being renamed
+ *   - viewingFileId/viewingFileName: PDF viewer state
+ *   - Handler methods for all operations
+ *
+ * @example
+ * const { state, currentFolderId, handleCreateFolder, handleUploadFile } = useDataRoom();
+ */
 export function useDataRoom() {
   const [state, setState] = useState<DataRoomState>(() => {
     return loadState() ?? initializeState();
@@ -75,8 +106,10 @@ export function useDataRoom() {
 
   const handleRenameSubmit = useCallback(
     (type: "folder" | "file", id: string, newName: string) => {
-      if (!newName.trim()) {
-        addToast("Name cannot be empty", "error");
+      // Validate name
+      const validation = validateName(newName);
+      if (!validation.valid) {
+        addToast(validation.error!, "error");
         return;
       }
 
@@ -110,20 +143,31 @@ export function useDataRoom() {
     setRenamingFile(null);
   }, []);
 
-  const handleCreateFolder = useCallback(() => {
-    try {
-      setState((prev) => createFolder(prev, currentFolderId, "New Folder"));
-      addToast("Folder created", "success");
-    } catch (err) {
-      addToast((err as Error).message, "error");
-    }
-  }, [currentFolderId, addToast]);
+  const handleCreateFolder = useCallback(
+    (name: string = "New Folder") => {
+      // Validate folder name
+      const validation = validateName(name);
+      if (!validation.valid) {
+        addToast(validation.error!, "error");
+        return;
+      }
+
+      try {
+        setState((prev) => createFolder(prev, currentFolderId, name));
+        addToast("Folder created", "success");
+      } catch (err) {
+        addToast((err as Error).message, "error");
+      }
+    },
+    [currentFolderId, addToast]
+  );
 
   const handleUploadFile = useCallback(
     async (file: File) => {
-      // Check file type
-      if (file.type !== "application/pdf") {
-        addToast("Only PDF files are supported", "error");
+      // Validate file type
+      const typeValidation = validateFileType(file.type, [SUPPORTED_FILE_TYPE]);
+      if (!typeValidation.valid) {
+        addToast(typeValidation.error!, "error");
         console.error("[Upload] Invalid file type:", {
           fileName: file.name,
           fileType: file.type,
@@ -131,13 +175,10 @@ export function useDataRoom() {
         return;
       }
 
-      if (file.size > MAX_FILE_SIZE) {
-        addToast(
-          `File too large (${(file.size / 1024 / 1024).toFixed(
-            1
-          )}MB). Maximum size is 5MB.`,
-          "error"
-        );
+      // Validate file size
+      const sizeValidation = validateFileSize(file.size, MAX_FILE_SIZE);
+      if (!sizeValidation.valid) {
+        addToast(sizeValidation.error!, "error");
         console.error("[Upload] File size exceeded:", {
           fileName: file.name,
           size: file.size,
@@ -156,8 +197,11 @@ export function useDataRoom() {
             // Pre-flight check: try storing temporarily
             const tempFileId = `temp-${Date.now()}-${Math.random()}`;
             try {
-              localStorage.setItem(`file-${tempFileId}`, base64);
-              localStorage.removeItem(`file-${tempFileId}`);
+              localStorage.setItem(
+                `${PDF_FILE_KEY_PREFIX}${tempFileId}`,
+                base64
+              );
+              localStorage.removeItem(`${PDF_FILE_KEY_PREFIX}${tempFileId}`);
             } catch (storageErr) {
               if (
                 storageErr instanceof DOMException &&
@@ -187,7 +231,10 @@ export function useDataRoom() {
               );
               if (newFileId) {
                 try {
-                  localStorage.setItem(`file-${newFileId}`, base64);
+                  localStorage.setItem(
+                    `${PDF_FILE_KEY_PREFIX}${newFileId}`,
+                    base64
+                  );
                 } catch (storageErr) {
                   // Cleanup: Remove file from state if storage fails
                   console.error(
@@ -209,7 +256,7 @@ export function useDataRoom() {
             // Cleanup: Remove orphaned localStorage entry if state update failed
             if (newFileId) {
               try {
-                localStorage.removeItem(`file-${newFileId}`);
+                localStorage.removeItem(`${PDF_FILE_KEY_PREFIX}${newFileId}`);
                 console.info("[Upload] Cleaned up orphaned file:", newFileId);
               } catch (cleanupErr) {
                 console.error(
@@ -258,7 +305,7 @@ export function useDataRoom() {
         return false;
       });
       filesToDelete.forEach((file) =>
-        localStorage.removeItem(`file-${file.id}`)
+        localStorage.removeItem(`${PDF_FILE_KEY_PREFIX}${file.id}`)
       );
 
       setState((prev) => deleteFolder(prev, id));
@@ -270,7 +317,7 @@ export function useDataRoom() {
 
   const handleDeleteFile = useCallback(
     (id: string) => {
-      localStorage.removeItem(`file-${id}`);
+      localStorage.removeItem(`${PDF_FILE_KEY_PREFIX}${id}`);
       setState((prev) => deleteFile(prev, id));
       setSelectedFileId(null);
       addToast("File deleted");

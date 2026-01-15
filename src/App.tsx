@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Folder } from "./types";
 import { useDataRoom } from "./hooks/useDataRoom";
 import { useFilters } from "./hooks/useFilters";
@@ -9,9 +9,12 @@ import Toolbar from "./components/Toolbar";
 import ItemList from "./components/ItemList";
 import FileViewerDialog from "./components/FileViewerDialog";
 import ErrorBoundary from "./components/ErrorBoundary";
+import CreateFolderDialog from "./components/CreateFolderDialog";
 import { SearchIcon } from "./components/Icons";
 
 function App() {
+  const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+
   const {
     state,
     currentFolderId,
@@ -44,14 +47,22 @@ function App() {
     const path: Folder[] = [];
     let cursor = state.folders[currentFolderId];
 
+    // Defensive check: ensure current folder exists in state
+    if (!cursor) {
+      // Fall back to root if current folder is invalid
+      cursor = state.folders[state.rootFolderId];
+    }
+
     while (cursor) {
       path.unshift(cursor);
       if (!cursor.parentId) break;
       cursor = state.folders[cursor.parentId];
+      // Prevent infinite loops from circular references
+      if (!cursor) break;
     }
 
     return path;
-  }, [currentFolderId, state.folders]);
+  }, [currentFolderId, state.folders, state.rootFolderId]);
 
   const foldersInCurrentFolder = useMemo(
     () =>
@@ -172,7 +183,7 @@ function App() {
             </div>
 
             <Toolbar
-              onCreateFolder={handleCreateFolder}
+              onCreateFolder={() => setShowCreateFolderDialog(true)}
               canGoBack={canGoBack}
               onBack={handleBack}
             />
@@ -289,6 +300,12 @@ function App() {
           onClose={handleCloseViewer}
         />
       </ErrorBoundary>
+
+      <CreateFolderDialog
+        open={showCreateFolderDialog}
+        onOpenChange={setShowCreateFolderDialog}
+        onConfirm={(name) => handleCreateFolder(name)}
+      />
     </div>
   );
 }

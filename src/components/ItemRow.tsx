@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FolderIcon, FileIcon, EyeIcon } from "./Icons";
 import ItemContextMenu from "./ItemContextMenu";
+import ConfirmDialog from "./ConfirmDialog";
 
 // Base props shared by both folder and file rows
 type BaseItemRowProps = {
@@ -44,6 +45,7 @@ function ItemRow({
 }: ItemRowProps) {
   const isFolder = kind === "folder";
   const [draft, setDraft] = useState(name);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -143,10 +145,25 @@ function ItemRow({
           <ItemContextMenu
             buttonRef={menuButtonRef}
             onRename={onRenameStart}
-            onDelete={onDelete}
+            onDelete={() => setShowDeleteConfirm(true)}
           />
         </div>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={`Delete ${isFolder ? "Folder" : "File"}?`}
+        description={
+          isFolder
+            ? `Are you sure you want to delete "${name}" and all its contents? This action cannot be undone.`
+            : `Are you sure you want to delete "${name}"? This action cannot be undone.`
+        }
+        onConfirm={onDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </li>
   );
 }

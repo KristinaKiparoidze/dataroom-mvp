@@ -35,7 +35,7 @@ function ItemContextMenu({
 
         <DropdownMenu.Item
           onClick={onDelete}
-          className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors focus:outline-none focus:bg-red-50 cursor-pointer"
+          className="px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 active:bg-red-100 transition-colors focus:outline-none focus:bg-red-50 cursor-pointer"
         >
           Delete
         </DropdownMenu.Item>
